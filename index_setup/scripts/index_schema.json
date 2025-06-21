@@ -1,0 +1,18 @@
+{
+    "name": "companies",
+    "fields": [
+      { "name": "ticker",           "type": "Edm.String",  "key": true,  "filterable": true },
+      { "name": "name",             "type": "Edm.String",  "searchable": true },
+      { "name": "sector",           "type": "Edm.String",  "filterable": true, "facetable": true },
+      { "name": "country",          "type": "Edm.String",  "filterable": true },
+      { "name": "ebitda_musd",      "type": "Edm.Double",  "filterable": true, "sortable": true },
+      { "name": "rev_growth_pct",   "type": "Edm.Double",  "sortable": true },
+      { "name": "market_cap_musd",  "type": "Edm.Double",  "sortable": true },
+      { "name": "share_price",      "type": "Edm.Double" },
+      { "name": "ai_flag",          "type": "Edm.Boolean", "filterable": true },
+      { "name": "long_description", "type": "Edm.String",  "searchable": true, "vectorSearchConfiguration": "default" },
+      { "name": "product_summary",  "type": "Edm.String",  "searchable": true, "vectorSearchConfiguration": "default" }
+    ],
+    "vectorSearch": { "algorithmConfigurations": [ { "name": "default", "kind": "hnsw" } ] }
+  }
+  

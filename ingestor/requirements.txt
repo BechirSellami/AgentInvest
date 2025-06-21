@@ -1,0 +1,5 @@
+yfinance
+openai==1.14
+azure-search-documents
+redis
+python-dotenv

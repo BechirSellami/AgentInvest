@@ -1,0 +1,9 @@
+langgraph
+langchain
+fastapi
+uvicorn[standard]
+openai==1.14
+azure-search-documents
+redis
+langfuse
+python-dotenv
