@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
 import os
+import logging
 
 from azure.identity import DefaultAzureCredential
 from azure.search.documents.indexes import SearchIndexClient
@@ -22,6 +23,9 @@ from azure.search.documents.indexes.models import (
 # Load environment variables
 load_dotenv()
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 AZURE_SEARCH_SERVICE = os.environ["AZURE_SEARCH_SERVICE"]
 AZURE_OPENAI_ACCOUNT = os.environ["AZURE_OPENAI_ACCOUNT"]
 AZURE_OPENAI_KEY = os.environ["AZURE_OPENAI_KEY"]
@@ -41,13 +45,19 @@ try:
 except Exception as e: 
     print(f"Failed to acquire Azure credential: {e}")
     token = None 
+    logger.info("Token acquired for: %s", token)
+except Exception as e:
+    logger.error("Failed to acquire Azure credential: %s", e)
+    token = None
 
 # Assert we can connect to Azure Search Service
 try:
     index_client.get_index("companies-index")
     print("Successfully connected to Azure Search Service")
+    logger.info("Successfully connected to Azure Search Service")
 except Exception as e:
     print(f"Failed to connect to Azure Search Service: {e}")
+    logger.error("Failed to connect to Azure Search Service: %s", e)
     
 # Assert we can connect to Azure OpenAI Service
 try:
@@ -57,8 +67,10 @@ try:
         "https://cognitiveservices.azure.com/.default"
         )
     print("Successfully connected to Azure OpenAI Service")
+    logger.info("Successfully connected to Azure OpenAI Service")
 except Exception as e:
     print(f"Failed to connect to Azure OpenAI Service: {e}")
+    logger.error("Failed to connect to Azure OpenAI Service: %s", e)
     
 # Assert we can connect to Azure AI Multiservice
 try:
@@ -68,8 +80,10 @@ try:
         "https://cognitiveservices.azure.com/.default"
     )
     print("Successfully connected to Azure AI Multiservice")
+    logger.info("Successfully connected to Azure AI Multiservice")
 except Exception as e:
     print(f"Failed to connect to Azure AI Multiservice: {e}")
+    logger.error("Failed to connect to Azure AI Multiservice: %s", e)
 
 
 # This script creates an Azure AI Search index for company data with vector search capabilities. 
@@ -122,3 +136,5 @@ vector_search = VectorSearch(
 index = SearchIndex(name=index_name, fields=fields, vector_search=vector_search)  
 result = index_client.create_or_update_index(index)  
 print(f"{result.name} created")  
+result = index_client.create_or_update_index(index)
+logger.info("%s created", result.name)
