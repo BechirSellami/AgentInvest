@@ -1,7 +1,10 @@
 # Collect data from Yahoo Finance and push to Azure AI Search index
+import os
 import pandas as pd
 from yfinance import Ticker
-import time 
+from dotenv import load_dotenv
+from azure.identity import DefaultAzureCredential
+from azure.search.documents import SearchClient
 
 # Load data from csv and Yahoo Finance
 df = pd.read_csv("../data/sample_companies.csv")
@@ -40,13 +43,33 @@ def collate_docs(df=df):
 
     for _, row in df.iterrows():
         ticker = row['ticker']
-        sub_field = row['sector']
         
         try:
-            doc = build_doc(ticker)
+            doc = build_doc(ticker, row)
             docs.append(doc)
             
         except Exception as e:
             print(f"Error processing {ticker}: {e}")
             
     return docs
+
+
+def ingest_to_search(docs, index_name="companies-index"):
+    """Upload documents to Azure AI Search index."""
+    load_dotenv()
+    endpoint = os.environ["AZURE_SEARCH_SERVICE"]
+    credential = DefaultAzureCredential()
+    client = SearchClient(endpoint=endpoint, index_name=index_name, credential=credential)
+    if not docs:
+        print("No documents to upload")
+        return []
+
+    result = client.upload_documents(documents=docs)
+    succeeded = sum(1 for r in result if r.succeeded)
+    print(f"Uploaded {succeeded}/{len(result)} documents")
+    return result
+
+
+if __name__ == "__main__":
+    documents = collate_docs()
+    ingest_to_search(documents)
