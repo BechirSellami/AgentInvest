@@ -5,6 +5,7 @@ from yfinance import Ticker
 from dotenv import load_dotenv
 from azure.identity import DefaultAzureCredential
 from azure.search.documents import SearchClient
+from azure.search.documents.indexes import SearchIndexClient
 import logging
 # Set up logging   
 logging.basicConfig(level=logging.INFO)
@@ -64,17 +65,18 @@ def ingest_to_search(docs, index_name="companies-index"):
     endpoint = os.environ["AZURE_SEARCH_SERVICE"]
     credential = DefaultAzureCredential()
     client = SearchClient(endpoint=endpoint, index_name=index_name, credential=credential)
+    index_client = SearchIndexClient(endpoint=endpoint, credential=credential)
     
     # Assert we can get Azure Credential
     try:
         token = credential.get_token("https://search.azure.com/.default")
-        logger.info("Token acquired for:", token)
+        logger.info(f"Token acquired for: {token}")
     except Exception as e:
         logger.error(f"Failed to acquire Azure credential: {e}")
 
     # Assert we can connect to Azure Search Service
     try:
-        index_client.get_index(args.index_name)
+        index_client.get_index(index_name)
         logger.info("Successfully connected to Azure Search Service")
     except Exception as e:
         logger.error(f"Failed to connect to Azure Search Service: {e}")

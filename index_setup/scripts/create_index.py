@@ -47,7 +47,7 @@ def main() -> None:
     # Assert we can get Azure Credential
     try:
         token = credential.get_token("https://search.azure.com/.default")
-        logger.info("Token acquired for:", token)
+        logger.info(f"Token acquired for: {token}")
     except Exception as e:
         logger.error(f"Failed to acquire Azure credential: {e}")
 
