@@ -4,3 +4,4 @@ azure-search-documents
 azure-identity
 redis
 python-dotenv
+azure-ai-inference

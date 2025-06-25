@@ -1,96 +1,80 @@
-# Collect data from Yahoo Finance and push to Azure AI Search index
 import os
 import pandas as pd
 from yfinance import Ticker
-from dotenv import load_dotenv
-from azure.identity import DefaultAzureCredential
+from openai import AzureOpenAI
+from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
-from azure.search.documents.indexes import SearchIndexClient
-import logging
-# Set up logging   
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from dotenv import load_dotenv
+from embed import embed
+from pprint import pprint
 
-# Load data from csv and Yahoo Finance
-df = pd.read_csv("./data/sample_companies.csv")
+load_dotenv()
+# Environment setup
+AZURE_SEARCH_ENDPOINT = os.environ["AZURE_SEARCH_SERVICE"]
+AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_ADMIN_KEY")
+AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+AZURE_OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY")
+DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
 
-# Clean tickers
-df['ticker'] = df['ticker'].apply(lambda x : x.split(":")[1])
+# Initialize Azure Search client
+search_client = SearchClient(
+    endpoint=AZURE_SEARCH_ENDPOINT,
+    index_name="companies-index",
+    credential=AzureKeyCredential(AZURE_SEARCH_KEY)
+)
 
-def build_doc(ticker: str, df_row):
+# Initialize Azure OpenAI client
+client = AzureOpenAI(
+    api_key=AZURE_OPENAI_KEY,
+    azure_endpoint=AZURE_OPENAI_ENDPOINT,
+    api_version="2024-02-01"
+)
+
+def sanitize_key(key: str) -> str:
+    return key.replace(".", "_")
+
+
+def build_doc(ticker: str, name):
     yf = Ticker(ticker)
     info = yf.info
     about = info.get("longBusinessSummary", "")
-    sub_sector = df_row['sector']
-    #prod  = " ".join(about.split(".")[:2])  # crude product snippet
 
     return {
-        "ticker": ticker,
-        "name": info["shortName"],
+        "ticker": sanitize_key(ticker),
+        "name": name,
         "sector": info.get("sector", "Unknown"),
-        "sub_sector": sub_sector,
         "country": info.get("country", "Unknown"),
         "ebitda_musd": round(info.get("ebitda", 0)/1e6, 1),
         "rev_growth_pct": round(info.get("revenueGrowth", 0), 2),
         "market_cap_musd": round(info.get("marketCap", 0)/1e6, 1),
-        #"share_price": yf.history("1d")["Close"][-1],
-        #"ai_flag": "ai" in about.lower(),
-        "long_description": about,
-        #"long_descriptionVector": embed(about),
-        #"product_summary": prod,
-        #"product_summaryVector": embed(prod),
+        "description": about,
+        "text_vector": None,  # Will be set with embedding (see below)
         "@search.action": "mergeOrUpload"
     }
 
-def collate_docs(df=df):
-    # Collect data from Yahoo Finance and build JSON to push to search index
-    docs = []
-
-    for _, row in df.iterrows():
-        ticker = row['ticker']
-        
-        try:
-            doc = build_doc(ticker, row)
-            docs.append(doc)
-            
-        except Exception as e:
-            print(f"Error processing {ticker}: {e}")
-            
-    return docs
-
-
-def ingest_to_search(docs, index_name="companies-index"):
-    """Upload documents to Azure AI Search index."""
-    load_dotenv()
-    endpoint = os.environ["AZURE_SEARCH_SERVICE"]
-    credential = DefaultAzureCredential()
-    client = SearchClient(endpoint=endpoint, index_name=index_name, credential=credential)
-    index_client = SearchIndexClient(endpoint=endpoint, credential=credential)
-    
-    # Assert we can get Azure Credential
-    try:
-        token = credential.get_token("https://search.azure.com/.default")
-        logger.info(f"Token acquired for: {token}")
-    except Exception as e:
-        logger.error(f"Failed to acquire Azure credential: {e}")
-
-    # Assert we can connect to Azure Search Service
-    try:
-        index_client.get_index(index_name)
-        logger.info("Successfully connected to Azure Search Service")
-    except Exception as e:
-        logger.error(f"Failed to connect to Azure Search Service: {e}")
-    
-    if not docs:
-        print("No documents to upload")
-        return []
-
-    result = client.upload_documents(documents=docs)
-    succeeded = sum(1 for r in result if r.succeeded)
-    print(f"Uploaded {succeeded}/{len(result)} documents")
-    return result
-
-
 if __name__ == "__main__":
-    documents = collate_docs()
-    ingest_to_search(documents)
+    # Load dataset and clean ticker symbols
+    df = pd.read_csv("./data/sample_companies.csv")
+    df['ticker'] = df['ticker'].apply(lambda x : x.split(":")[1])
+    
+    # Build documents from DataFrame
+    docs = [build_doc(row["ticker"], row["company"]) for _ , row in df.iterrows()]
+    docs = [d for d in docs if d]  # Filter out None
+    
+    # Create embeddings for descriptions
+    for d in docs:
+        if not d['description']:
+            print(f"Skipping {d['ticker']} - no description available.")
+        else:
+            d['text_vector'] = embed(d['description'])
+    docs = [d for d in docs if d['text_vector']]  # Filter out None vectors
+    
+    # Upload results to Azure Search Index
+    if docs:
+        try:
+            result = search_client.upload_documents(documents=docs)
+            print("Upload result:", result)
+        except Exception as e:
+            print("Azure Search upload failed:", e)
+    else:
+        print("No valid documents to upload.")

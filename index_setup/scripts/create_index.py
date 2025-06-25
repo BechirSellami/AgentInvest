@@ -86,7 +86,7 @@ def main() -> None:
         SearchField(name="market_cap_musd", type=SearchFieldDataType.Double, sortable=True),
         SearchField(name="description", type=SearchFieldDataType.String, sortable=False, filterable=False, facetable=False),
         SearchField(name="text_vector", type=SearchFieldDataType.Collection(SearchFieldDataType.Single), vector_search_dimensions=1024, vector_search_profile_name="myHnswProfile"),
-    ]
+    ]  
   
     # Configure the vector search configuration
     vector_search = VectorSearch(
