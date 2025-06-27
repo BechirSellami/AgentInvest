@@ -3,6 +3,4 @@ langchain
 fastapi
 uvicorn[standard]
 openai==1.14
-redis
-langfuse
 python-dotenv

@@ -1,0 +1,4 @@
+User submits a query
+
+Agent confirms query has enough information
+
