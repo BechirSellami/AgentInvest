@@ -27,11 +27,12 @@ def build_engine():
     graph.add_node("explainer", explainer)
 
     graph.set_entry_point("clarifier")
-    graph.add_edge("clarifier", "query_fix",
-                   condition=lambda s: not s.need_clarification)
-    graph.add_edge(
-        "clarifier", "END",
-        condition=lambda s: s.need_clarification,
+    graph.add_conditional_edges(
+        "clarifier",
+        {
+            "query_fix": lambda s: not s.need_clarification,
+            "END": lambda s: s.need_clarification,
+        },
     )
 
     graph.add_edge("query_fix", "retriever")

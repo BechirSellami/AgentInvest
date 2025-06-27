@@ -1,9 +1,10 @@
 """Construct a minimal LangGraph engine for query clarification."""
 
-from langgraph.graph import StateGraph
+from langgraph.graph import StateGraph, END
 
 from .state import InvestorState
-from .nodes import clarifier, query_fix
+from .nodes.clarifier import clarifier
+from .nodes.query_fix import query_fix
 
 
 def build_engine():
@@ -14,12 +15,12 @@ def build_engine():
     graph.add_node("query_fix", query_fix)
 
     graph.set_entry_point("clarifier")
-    graph.add_edge("clarifier", "query_fix",
-                   condition=lambda s: not s.need_clarification)
-    graph.add_edge(
-        "clarifier",
-        "END",
-        condition=lambda s: s.need_clarification,
+    graph.add_conditional_edges(
+    "clarifier",
+    {
+        "query_fix": lambda s: not s.need_clarification,
+        END: lambda s: s.need_clarification,
+    },
     )
 
     return graph.compile()

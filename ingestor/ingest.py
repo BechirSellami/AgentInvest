@@ -61,7 +61,7 @@ def build_doc(ticker: str, name):
 if __name__ == "__main__":
     # Save docs for later use (avoids recreating the data)
     filename="my_docs.json"
-    if not os.path.exist(filename):
+    if not os.path.exists(filename):
         # Load dataset and clean ticker symbols
         df = pd.read_csv("./ingestor/data/sample_companies.csv")
         df['ticker'] = df['ticker'].apply(lambda x : x.split(":")[1])
