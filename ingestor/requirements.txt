@@ -1,7 +1,7 @@
 yfinance
 openai==1.14
+httpx<1
 azure-search-documents
 azure-identity
 redis
 python-dotenv
-azure-ai-inference

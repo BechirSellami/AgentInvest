@@ -4,3 +4,4 @@ fastapi
 uvicorn[standard]
 openai==1.14
 python-dotenv
+httpx<1
