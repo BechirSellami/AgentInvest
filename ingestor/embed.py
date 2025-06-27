@@ -1,40 +1,32 @@
 import os
 from dotenv import load_dotenv
-from openai import AzureOpenAI
+from openai import OpenAI
 
 load_dotenv()
 
  # Retrieve configuration from environment
-endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-if not endpoint:
-    raise ValueError("AZURE_OPENAI_ENDPOINT environment variable is not set.")
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
+    raise ValueError("OPENAI_API_KEY environment variable is not set.")
 
-api_version = "2024-02-01"
+embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-large")
 
-# Azure OpenAI API key
-azure_openai_key = os.getenv("AZURE_OPENAI_KEY")
-if not azure_openai_key:
-    raise ValueError("AZURE_OPENAI_KEY environment variable is not set.")
+# Initialize the OpenAI client
+client = OpenAI(api_key=openai_api_key)
 
 embedding_deployment = "text-embedding-2525"
 
-# Initialize the AzureOpenAI client correctly
-client = AzureOpenAI(
-    api_key=azure_openai_key,
-    api_version=api_version,
-    azure_endpoint=endpoint
-)
-
-def embed(txt, client=client):
+def embed(txt: str, client: OpenAI = client) -> list:
     response = client.embeddings.create(
-                input=[txt],
-                model=embedding_deployment,
-                dimensions=1024
-            )
+        input=[txt],
+        model=embedding_model,
+        dimensions=1024,
+    )
     embedding = response.data[0].embedding
     if not embedding:
         raise ValueError("Embedding response is empty.")
     if len(embedding) != 1024:
-        raise ValueError(f"Unexpected embedding length: {len(embedding)}. Expected 1024.")
-        
+        raise ValueError(
+            f"Unexpected embedding length: {len(embedding)}. Expected 1024."
+        )
     return embedding

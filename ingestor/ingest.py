@@ -1,34 +1,41 @@
 import os
 import pandas as pd
 from yfinance import Ticker
-from openai import AzureOpenAI
-from azure.core.credentials import AzureKeyCredential
-from azure.search.documents import SearchClient
+import weaviate
+from weaviate.classes.config import Property, DataType, Configure
 from dotenv import load_dotenv
 from embed import embed
-from pprint import pprint
+import json
 
 load_dotenv()
 # Environment setup
 AZURE_SEARCH_ENDPOINT = os.environ["AZURE_SEARCH_SERVICE"]
-AZURE_SEARCH_KEY = os.getenv("AZURE_SEARCH_ADMIN_KEY")
-AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
-AZURE_OPENAI_KEY = os.getenv("AZURE_OPENAI_KEY")
-DEPLOYMENT_NAME = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
+WEAVIATE_URL = "localhost:8080"
 
-# Initialize Azure Search client
-search_client = SearchClient(
-    endpoint=AZURE_SEARCH_ENDPOINT,
-    index_name="companies-index",
-    credential=AzureKeyCredential(AZURE_SEARCH_KEY)
-)
+# Connect to Weaviate depending on credentials
 
-# Initialize Azure OpenAI client
-client = AzureOpenAI(
-    api_key=AZURE_OPENAI_KEY,
-    azure_endpoint=AZURE_OPENAI_ENDPOINT,
-    api_version="2024-02-01"
-)
+client = weaviate.connect_to_local()
+    
+COLLECTION_NAME = "Company"
+
+if not client.collections.exists(COLLECTION_NAME):
+    client.collections.create(
+        name=COLLECTION_NAME,
+        properties=[
+            Property(name="ticker", data_type=DataType.TEXT),
+            Property(name="name", data_type=DataType.TEXT),
+            Property(name="sector", data_type=DataType.TEXT),
+            Property(name="country", data_type=DataType.TEXT),
+            Property(name="ebitda_musd", data_type=DataType.NUMBER),
+            Property(name="rev_growth_pct", data_type=DataType.NUMBER),
+            Property(name="market_cap_musd", data_type=DataType.NUMBER),
+            Property(name="description", data_type=DataType.TEXT),
+        ],
+        vectorizer_config=Configure.Vectorizer.none(),
+        vector_index_config=Configure.VectorIndex.hnsw(),
+    )
+
+collection = client.collections.get(COLLECTION_NAME)
 
 def sanitize_key(key: str) -> str:
     return key.replace(".", "_")
@@ -48,33 +55,52 @@ def build_doc(ticker: str, name):
         "rev_growth_pct": round(info.get("revenueGrowth", 0), 2),
         "market_cap_musd": round(info.get("marketCap", 0)/1e6, 1),
         "description": about,
-        "text_vector": None,  # Will be set with embedding (see below)
-        "@search.action": "mergeOrUpload"
+        "_vector": None  # Will be set with embedding (see below)
     }
 
 if __name__ == "__main__":
-    # Load dataset and clean ticker symbols
-    df = pd.read_csv("./data/sample_companies.csv")
-    df['ticker'] = df['ticker'].apply(lambda x : x.split(":")[1])
+    # Save docs for later use (avoids recreating the data)
+    filename="my_docs.json"
+    if not os.path.exist(filename):
+        # Load dataset and clean ticker symbols
+        df = pd.read_csv("./ingestor/data/sample_companies.csv")
+        df['ticker'] = df['ticker'].apply(lambda x : x.split(":")[1])
+        
+        # Build documents from DataFrame
+        docs = [build_doc(row["ticker"], row["company"]) for _, row in df.iterrows()]
+        docs = [d for d in docs if d]  # Filter out None
+        
+        # Create embeddings for descriptions
+        valid_docs = []
+        vectors = []
+        for d in docs:
+            if not d['description']:
+                print(f"Skipping {d['ticker']} - no description available.")
+                continue
+            else:
+                vector = embed(d['description'])
+                d['_vector'] = vector
+                valid_docs.append(d)
+                vectors.append(vector)      
+        docs = valid_docs
+        # Save documents to file
+        with open(filename, 'w') as f:
+            json.dump(docs, f, indent=4)
+        print(f"Saved {len(docs)} documents to {filename}")
+    else:
+        # Load docs from disk
+        with open(filename, 'r') as f:
+            docs = json.load(f)
     
-    # Build documents from DataFrame
-    docs = [build_doc(row["ticker"], row["company"]) for _ , row in df.iterrows()]
-    docs = [d for d in docs if d]  # Filter out None
-    
-    # Create embeddings for descriptions
-    for d in docs:
-        if not d['description']:
-            print(f"Skipping {d['ticker']} - no description available.")
-        else:
-            d['text_vector'] = embed(d['description'])
-    docs = [d for d in docs if d['text_vector']]  # Filter out None vectors
-    
-    # Upload results to Azure Search Index
+    # Upload results to Weaviate
     if docs:
         try:
-            result = search_client.upload_documents(documents=docs)
-            print("Upload result:", result)
+            collection.data.insert_many(docs)
+            print(f"Inserted {len(docs)} documents into Weaviate")
         except Exception as e:
-            print("Azure Search upload failed:", e)
+             print("Weaviate upload failed:", e)
     else:
         print("No valid documents to upload.")
+    
+    # close connection to weaviate
+    client.close()

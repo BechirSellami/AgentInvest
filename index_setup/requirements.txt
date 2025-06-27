@@ -1,6 +1,2 @@
 python-dotenv
-azure-core
-azure-search-documents==11.5.2
-azure-identity
-openai
-aiohttp
+weaviate-client

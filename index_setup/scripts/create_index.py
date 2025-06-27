@@ -1,123 +1,67 @@
+
 from dotenv import load_dotenv
 import argparse
 import os
 import logging
 
-from azure.identity import DefaultAzureCredential
-from azure.identity import get_bearer_token_provider
-from azure.search.documents.indexes import SearchIndexClient
-from azure.search.documents.indexes.models import (
-    SearchField,
-    SearchFieldDataType,
-    VectorSearch,
-    HnswAlgorithmConfiguration,
-    VectorSearchProfile,
-    AzureOpenAIVectorizer,
-    AzureOpenAIVectorizerParameters,
-    SearchIndex
-)
-
+import weaviate
+from weaviate.classes.config import Property, DataType, Configure
+ 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
+ 
+ 
 def parse_args() -> argparse.Namespace:
-    """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="Create or update an Azure Search index")
+    parser = argparse.ArgumentParser(description="Create or update a Weaviate collection")
     parser.add_argument(
-        "--index-name",
-        default=os.environ.get("AZURE_SEARCH_INDEX", "companies-index"),
-        help="Name of the index to create or update",
+        "--collection-name",
+        default=os.environ.get("WEAVIATE_COLLECTION", "companies"),
+        help="Name of the Weaviate collection to create",
     )
     return parser.parse_args()
-
-
+ 
+ 
+def connect() -> weaviate.WeaviateClient:
+    url = os.getenv("WEAVIATE_URL")
+    api_key = os.getenv("WEAVIATE_API_KEY")
+    if api_key and url:
+        logger.info("Connecting to remote Weaviate instance")
+        return weaviate.connect_to_wcs(cluster_url=url, auth_credentials=weaviate.auth.AuthApiKey(api_key))
+    if url:
+        logger.info("Connecting to local Weaviate at %s", url)
+        return weaviate.connect_to_local(host=url)
+    logger.info("Connecting to local Weaviate with default settings")
+    return weaviate.connect_to_local()
+ 
+  
 def main() -> None:
-    """Script entry point."""
     load_dotenv()
-
-    endpoint = os.environ["AZURE_SEARCH_SERVICE"]
-    openai_account = os.environ["AZURE_OPENAI_ACCOUNT"]
-
     args = parse_args()
+ 
+    client = connect()
 
-    credential = DefaultAzureCredential()
-    index_client = SearchIndexClient(endpoint=endpoint, credential=credential)
+    if client.collections.exists(args.collection_name):
+        logger.info("Collection %s exists, deleting", args.collection_name)
+        client.collections.delete(args.collection_name)
 
-    # Assert we can get Azure Credential
-    try:
-        token = credential.get_token("https://search.azure.com/.default")
-        logger.info(f"Token acquired for: {token}")
-    except Exception as e:
-        logger.error(f"Failed to acquire Azure credential: {e}")
-
-    # Assert we can connect to Azure Search Service
-    try:
-        index_client.get_index(args.index_name)
-        logger.info("Successfully connected to Azure Search Service")
-    except Exception as e:
-        logger.error(f"Failed to connect to Azure Search Service: {e}")
-
-    # Assert we can connect to Azure OpenAI Service
-    try:
-        _ = get_bearer_token_provider(
-            openai_account,
-            os.environ.get("AZURE_OPENAI_KEY", ""),
-            "https://cognitiveservices.azure.com/.default",
-        )
-        logger.info("Successfully connected to Azure OpenAI Service")
-    except Exception as e:
-        logger.error(f"Failed to connect to Azure OpenAI Service: {e}")
-
-    # This script creates an Azure AI Search index for company data with vector search capabilities.
-    # It uses the Azure SDK for Python to define the index schema, including fields for company information and a vector field for text embeddings.
-
-    # Create a search index
-    index_name = args.index_name
-    
-    # Define the fields for the index
-    fields = [
-        SearchField(name="ticker", type=SearchFieldDataType.String, key=True, filterable=True,),
-        SearchField(name="name", type=SearchFieldDataType.String, searchable=True),
-        SearchField(name="sector", type=SearchFieldDataType.String, filterable=True, facetable=True),
-        SearchField(name="country", type=SearchFieldDataType.String, filterable=True),
-        SearchField(name="ebitda_musd", type=SearchFieldDataType.Double, filterable=True, sortable=True),
-        SearchField(name="rev_growth_pct", type=SearchFieldDataType.Double, sortable=True),
-        SearchField(name="market_cap_musd", type=SearchFieldDataType.Double, sortable=True),
-        SearchField(name="description", type=SearchFieldDataType.String, sortable=False, filterable=False, facetable=False),
-        SearchField(name="text_vector", type=SearchFieldDataType.Collection(SearchFieldDataType.Single), vector_search_dimensions=1024, vector_search_profile_name="myHnswProfile"),
-    ]  
+    client.collections.create(
+        name=args.collection_name,
+        properties=[
+            Property(name="ticker", data_type=DataType.TEXT),
+            Property(name="name", data_type=DataType.TEXT),
+            Property(name="sector", data_type=DataType.TEXT),
+            Property(name="country", data_type=DataType.TEXT),
+            Property(name="ebitda_musd", data_type=DataType.NUMBER),
+            Property(name="rev_growth_pct", data_type=DataType.NUMBER),
+            Property(name="market_cap_musd", data_type=DataType.NUMBER),
+            Property(name="description", data_type=DataType.TEXT),
+         ],
+        vectorizer_config=Configure.Vectorizer.none(),
+        vector_index_config=Configure.VectorIndex.hnsw()
+     )
   
-    # Configure the vector search configuration
-    vector_search = VectorSearch(
-        algorithms=[
-            HnswAlgorithmConfiguration(name="myHnsw"),
-        ],
-        profiles=[
-            VectorSearchProfile(
-                name="myHnswProfile",
-                algorithm_configuration_name="myHnsw",
-                vectorizer_name="myOpenAI",
-            )
-        ],
-        vectorizers=[
-            AzureOpenAIVectorizer(
-                vectorizer_name="myOpenAI",
-                kind="azureOpenAI",
-                parameters=AzureOpenAIVectorizerParameters(
-                    resource_url=openai_account,
-                    deployment_name="text-embedding-3-large",
-                    model_name="text-embedding-3-large",
-                ),
-            ),
-        ],
-    )
-  
-    # Create the search index
-    index = SearchIndex(name=index_name, fields=fields, vector_search=vector_search)
-    result = index_client.create_or_update_index(index)
-    print(f"{result.name} created")
-
-
+    logger.info("Collection %s created", args.collection_name)
+    client.close()
+ 
 if __name__ == "__main__":
     main()
