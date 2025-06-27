@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 from openai import OpenAI
 
 # Local application imports
-from state import InvestorState, StructuredQuery
+from graph.state import InvestorState
+from graph import StructuredQuery
 
 load_dotenv()
 

@@ -1,6 +1,6 @@
 from langgraph.graph import StateGraph
-from state import InvestorState
-from nodes import (clarifier, query_fix)
+from graph.state import InvestorState
+from graph.nodes import (clarifier, query_fix)
 # , retriever, enricher, screener, optimizer, explainer)
 
 graph = StateGraph(InvestorState)

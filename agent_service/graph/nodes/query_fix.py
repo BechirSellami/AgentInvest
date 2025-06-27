@@ -8,7 +8,7 @@ Query-Fix node
 """
 
 from typing import List, Optional
-from state import InvestorState
+from graph.state import InvestorState
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Heuristics / defaults
