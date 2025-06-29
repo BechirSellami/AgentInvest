@@ -56,8 +56,15 @@ def clarifier(state: InvestorState) -> InvestorState:
     structured = StructuredQuery.model_validate_json(tool_args).model_dump()
 
     state.structured_query = structured
+    # The user needs to provide at least one of sector or keywords. Otherwise, we need clarification.
     state.need_clarification = (
-        structured["sector"] is None and structured["keywords"] is None
+        structured["sector"] is None \
+        and structured["keywords"] is None \
+        and structured["ebitda_min"] is None \
+        and structured["revenue_min"] is None \
+        and structured["arr_growth_min"] is None
+        and structured["risk_profile"] is None \
+        and structured["theme"] is None
     )
     state.budget = structured.get("budget")
 

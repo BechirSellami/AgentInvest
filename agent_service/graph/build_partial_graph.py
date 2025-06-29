@@ -5,6 +5,7 @@ from langgraph.graph import StateGraph, END
 from .state import InvestorState
 from .nodes.clarifier import clarifier
 from .nodes.query_fix import query_fix
+from .nodes.retriever import retriever
 
 
 def build_engine():
@@ -13,7 +14,8 @@ def build_engine():
 
     graph.add_node("clarifier", clarifier)
     graph.add_node("query_fix", query_fix)
-
+    graph.add_node("retriever", retriever)
+    
     graph.set_entry_point("clarifier")
     graph.add_conditional_edges(
     "clarifier",
@@ -22,7 +24,9 @@ def build_engine():
         END: lambda s: s.need_clarification,
     },
     )
-
+    graph.add_edge("query_fix", "retriever")
+    graph.add_edge("retriever", END)
+ 
     return graph.compile()
 
 
