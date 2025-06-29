@@ -45,3 +45,6 @@ dist/
 # Local data and volumes
 .volumes/
 data/
+
+# Miscellaneous
+Docker-commands.txt
