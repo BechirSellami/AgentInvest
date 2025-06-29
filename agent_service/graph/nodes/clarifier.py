@@ -6,6 +6,7 @@ import os
 from functools import lru_cache
 from dotenv import load_dotenv
 from openai import OpenAI
+import httpx
 
 from ..state import InvestorState
 from ..structured_query import StructuredQuery
@@ -18,7 +19,7 @@ def _get_client() -> OpenAI:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise RuntimeError("OPENAI_API_KEY environment variable is not set.")
-    return OpenAI(api_key=api_key)
+    return OpenAI(api_key=api_key, http_client=httpx.Client())
 
 
 SYSTEM_PROMPT = (
