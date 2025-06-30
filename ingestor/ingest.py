@@ -6,17 +6,23 @@ from weaviate.classes.config import Property, DataType, Configure
 from dotenv import load_dotenv
 from embed import embed
 import json
+from pprint import pprint
+import logging
 
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Load environment variables
 load_dotenv()
+
 # Environment setup
-AZURE_SEARCH_ENDPOINT = os.environ["AZURE_SEARCH_SERVICE"]
-WEAVIATE_URL = "localhost:8080"
+WEAVIATE_URL = os.getenv("WEAVIATE_URL")
 
 # Connect to Weaviate depending on credentials
-
 client = weaviate.connect_to_local()
     
-COLLECTION_NAME = "Company"
+COLLECTION_NAME = os.getenv("WEAVIATE_COLLECTION")
 
 if not client.collections.exists(COLLECTION_NAME):
     client.collections.create(
@@ -45,7 +51,6 @@ def build_doc(ticker: str, name):
     yf = Ticker(ticker)
     info = yf.info
     about = info.get("longBusinessSummary", "")
-
     return {
         "ticker": sanitize_key(ticker),
         "name": name,
@@ -58,12 +63,14 @@ def build_doc(ticker: str, name):
         "_vector": None  # Will be set with embedding (see below)
     }
 
+
 if __name__ == "__main__":
     # Save docs for later use (avoids recreating the data)
-    filename="my_docs.json"
+    filename="./my_docs.json"
     if not os.path.exists(filename):
         # Load dataset and clean ticker symbols
         df = pd.read_csv("./ingestor/data/sample_companies.csv")
+        #df = pd.read_csv("./data/sample_companies.csv")
         df['ticker'] = df['ticker'].apply(lambda x : x.split(":")[1])
         
         # Build documents from DataFrame
@@ -86,21 +93,29 @@ if __name__ == "__main__":
         # Save documents to file
         with open(filename, 'w') as f:
             json.dump(docs, f, indent=4)
-        print(f"Saved {len(docs)} documents to {filename}")
+        logger.info(f"Saved {len(docs)} documents to {filename}")
     else:
         # Load docs from disk
         with open(filename, 'r') as f:
             docs = json.load(f)
-    
-    # Upload results to Weaviate
+            
+    # Upload documents to Weaviate
     if docs:
         try:
-            collection.data.insert_many(docs)
-            print(f"Inserted {len(docs)} documents into Weaviate")
+            # Always rebuild payloads cleanly from memory
+            payloads = [
+                {
+                    "properties": {k: v for k, v in d.items() if k != "_vector"},
+                    "vector": d["_vector"]
+                }
+                for d in docs if "_vector" in d and d["_vector"] is not None
+            ]
+            collection.data.insert_many(payloads[:1])
+            logger.info(f"Inserted {len(payloads)} documents into Weaviate")
         except Exception as e:
-             print("Weaviate upload failed:", e)
+            logger.error("Weaviate upload failed:", e)
     else:
-        print("No valid documents to upload.")
-    
+        raise Exception("No valid documents to upload.")
+         
     # close connection to weaviate
     client.close()
