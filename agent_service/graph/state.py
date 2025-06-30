@@ -1,5 +1,6 @@
-from typing import Optional
+from typing import Optional, Any
 from pydantic import BaseModel
+
 
 class InvestorState(BaseModel):
     user_query: str
@@ -10,5 +11,6 @@ class InvestorState(BaseModel):
     budget: float | None = None
     portfolio: dict | None = None          # output of optimizer
     explanation_md: str | None = None
-    where_filter: Optional[dict] = None
-    near_text: Optional[dict] = None
+    where_filter: Optional[Any] = None
+    near_vector: Optional[list] = None
+    error: Optional[Any] = None

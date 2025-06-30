@@ -15,29 +15,29 @@ from ..state import InvestorState
 import logging
 logger = logging.getLogger(__name__)
 
-@lru_cache(maxsize=1)
-def _get_client() -> weaviate.WeaviateClient:
-    """Return a cached Weaviate client"""
-    try:
-        return weaviate.connect_to_local()
-    except weaviate.exceptions.ConnectionError:
-        raise RuntimeError(
-            "Failed to connect to Weaviate. Ensure the Weaviate server is running and accessible."
-        )
+# @lru_cache(maxsize=1)
+# def _get_client() -> weaviate.WeaviateClient:
+#     """Return a cached Weaviate client"""
+#     try:
+#         return weaviate.connect_to_local()
+#     except Exception as e:
+#         raise RuntimeError(
+#             f"Failed to connect to Weaviate. Ensure the Weaviate server is running and accessible.\n{e}"
+#         )
 
 
 def retriever(state: InvestorState) -> InvestorState:
     """Populate ``state`` with documents retrieved from Weaviate."""
-    client = _get_client()
+    client = weaviate.connect_to_local()
     collection_name = os.getenv("WEAVIATE_COLLECTION")
     limit = int(os.getenv("RETRIEVAL_LIMIT", "10"))
     
-    logger.info("Retriever received structured_query: %s", state.structured_query)
+    logger.info("Retriever received state: %s", state)
 
     collection = client.collections.get(collection_name)
-    response = collection.query.near_text(
-        near_text=state.near_text,
-        where=state.where_filter,
+    response = collection.query.near_vector(
+        near_vector=state.near_vector,
+        filters=state.where_filter,
         limit=limit,
         return_metadata=MetadataQuery(distance=True),
     )
@@ -46,7 +46,7 @@ def retriever(state: InvestorState) -> InvestorState:
     for obj in response.objects:
         props = obj.properties or {}
         if obj.metadata:
-            props["_distance"] = obj.metadata.get("distance")
+            props["_distance"] = obj.metadata.distance
         docs.append(props)
 
     state.retrieved_docs = docs

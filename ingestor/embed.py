@@ -14,8 +14,6 @@ embedding_model = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-large")
 # Initialize the OpenAI client
 client = OpenAI(api_key=openai_api_key)
 
-embedding_deployment = "text-embedding-2525"
-
 def embed(txt: str, client: OpenAI = client) -> list:
     response = client.embeddings.create(
         input=[txt],

@@ -18,11 +18,8 @@ def build_engine():
     
     graph.set_entry_point("clarifier")
     graph.add_conditional_edges(
-    "clarifier",
-    {
-        "query_fix": lambda s: not s.need_clarification,
-        END: lambda s: s.need_clarification,
-    },
+        "clarifier",
+        lambda s: "query_fix" if not s.need_clarification else END
     )
     graph.add_edge("query_fix", "retriever")
     graph.add_edge("retriever", END)

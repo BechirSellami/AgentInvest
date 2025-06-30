@@ -67,5 +67,5 @@ def clarifier(state: InvestorState) -> InvestorState:
         and structured["theme"] is None
     )
     state.budget = structured.get("budget")
-
+    
     return state
