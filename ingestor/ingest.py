@@ -1,13 +1,16 @@
 import os
+import json
+import logging
+from pprint import pprint
+
 import pandas as pd
 from yfinance import Ticker
 import weaviate
 from weaviate.classes.config import Property, DataType, Configure
+from weaviate.classes.data import DataObject
 from dotenv import load_dotenv
+
 from embed import embed
-import json
-from pprint import pprint
-import logging
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -66,10 +69,11 @@ def build_doc(ticker: str, name):
 
 if __name__ == "__main__":
     # Save docs for later use (avoids recreating the data)
-    filename="./my_docs.json"
+    filename = os.path.join(os.path.dirname(__file__), "my_docs.json")
     if not os.path.exists(filename):
         # Load dataset and clean ticker symbols
-        df = pd.read_csv("./ingestor/data/sample_companies.csv")
+        data_path = os.path.join(os.path.dirname(__file__), "data", "sample_companies.csv")
+        df = pd.read_csv(data_path)
         #df = pd.read_csv("./data/sample_companies.csv")
         df['ticker'] = df['ticker'].apply(lambda x : x.split(":")[1])
         
@@ -104,13 +108,14 @@ if __name__ == "__main__":
         try:
             # Always rebuild payloads cleanly from memory
             payloads = [
-                {
-                    "properties": {k: v for k, v in d.items() if k != "_vector"},
-                    "vector": d["_vector"]
-                }
-                for d in docs if "_vector" in d and d["_vector"] is not None
+                DataObject(
+                    properties={k: v for k, v in d.items() if k != "_vector"},
+                    vector=d["_vector"],
+                )
+                for d in docs
+                if "_vector" in d and d["_vector"] is not None
             ]
-            collection.data.insert_many(payloads[:1])
+            collection.data.insert_many(payloads)
             logger.info(f"Inserted {len(payloads)} documents into Weaviate")
         except Exception as e:
             logger.error("Weaviate upload failed:", e)

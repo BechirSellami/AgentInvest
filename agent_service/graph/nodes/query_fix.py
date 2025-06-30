@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 from typing import List, Optional
+import logging
 
 from ..state import InvestorState
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Heuristics / defaults
@@ -82,6 +87,8 @@ def _build_where(q: dict) -> Optional[dict]:
 
 def query_fix(state: InvestorState) -> InvestorState:
     """Fill defaults, infer sector and create Weaviate query helpers."""
+    logger.info("Retriever received structured_query: %s", state.structured_query)
+    
     q = state.structured_query.copy()
 
     if q["sector"] is None:

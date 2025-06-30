@@ -17,7 +17,6 @@ async def handle_query(req: QueryRequest):
     state = InvestorState(user_query=req.query)
     try:
         result = engine.invoke(state)
-        print(result)
     except Exception as exc:  # pragma: no cover - simple pass-through
         raise HTTPException(status_code=500, detail=str(exc)) from exc
     return result

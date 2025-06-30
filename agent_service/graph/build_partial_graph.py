@@ -26,7 +26,7 @@ def build_engine():
     )
     graph.add_edge("query_fix", "retriever")
     graph.add_edge("retriever", END)
- 
+
     return graph.compile()
 
 

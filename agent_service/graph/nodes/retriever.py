@@ -12,6 +12,8 @@ from weaviate.classes.query import MetadataQuery
 
 from ..state import InvestorState
 
+import logging
+logger = logging.getLogger(__name__)
 
 @lru_cache(maxsize=1)
 def _get_client() -> weaviate.WeaviateClient:
@@ -27,8 +29,10 @@ def _get_client() -> weaviate.WeaviateClient:
 def retriever(state: InvestorState) -> InvestorState:
     """Populate ``state`` with documents retrieved from Weaviate."""
     client = _get_client()
-    collection_name = os.getenv("WEAVIATE_COLLECTION", "Company")
+    collection_name = os.getenv("WEAVIATE_COLLECTION")
     limit = int(os.getenv("RETRIEVAL_LIMIT", "10"))
+    
+    logger.info("Retriever received structured_query: %s", state.structured_query)
 
     collection = client.collections.get(collection_name)
     response = collection.query.near_text(
@@ -37,7 +41,7 @@ def retriever(state: InvestorState) -> InvestorState:
         limit=limit,
         return_metadata=MetadataQuery(distance=True),
     )
-
+    
     docs: List[Dict[str, Any]] = []
     for obj in response.objects:
         props = obj.properties or {}
@@ -46,4 +50,8 @@ def retriever(state: InvestorState) -> InvestorState:
         docs.append(props)
 
     state.retrieved_docs = docs
+    print(f"Retrieved {len(docs)} documents from Weaviate.")
+    if not docs:
+        state.error = "No documents found matching the query."
+        return state
     return state
