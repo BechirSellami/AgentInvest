@@ -1,19 +1,20 @@
----
+version: '3.9'
+
 services:
   weaviate:
-    command:
-    - --host
-    - 0.0.0.0
-    - --port
-    - '8080'
-    - --scheme
-    - http
     image: cr.weaviate.io/semitechnologies/weaviate:1.31.3
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - '8080'
+      - --scheme
+      - http
     ports:
-    - 8080:8080
-    - 50051:50051
+      - "8080:8080"
+      - "50051:50051"
     volumes:
-    - weaviate_data:/var/lib/weaviate
+      - weaviate_data:/var/lib/weaviate
     restart: on-failure:0
     environment:
       QUERY_DEFAULTS_LIMIT: 25
@@ -21,6 +22,41 @@ services:
       PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
       ENABLE_API_BASED_MODULES: 'true'
       CLUSTER_HOSTNAME: 'node1'
+    networks:
+      - agentnet
+
+  agent-service:
+    build:
+      context: .
+      dockerfile: agent_service/Dockerfile
+    container_name: agent-service
+    ports:
+      - "8000:80"
+    env_file:
+      - .env
+    networks:
+      - agentnet
+    depends_on:
+      - weaviate
+
+  agent-ui:
+    build:
+      context: ./ui
+      dockerfile: Dockerfile
+    container_name: agent-ui
+    ports:
+      - "8501:8501"
+    environment:
+      AGENT_SERVICE_URL: http://agent-service
+    networks:
+      - agentnet
+    depends_on:
+      - agent-service
+
 volumes:
   weaviate_data:
-...
+
+networks:
+  agentnet:
+    name: agentnet
+    driver: bridge
