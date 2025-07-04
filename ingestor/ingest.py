@@ -117,8 +117,10 @@ if __name__ == "__main__":
             ]
             collection.data.insert_many(payloads)
             logger.info(f"Inserted {len(payloads)} documents into Weaviate")
-        except Exception as e:
-            logger.error("Weaviate upload failed:", e)
+        except weaviate.exceptions.WeaviateInsertManyAllFailedError as e:
+            logger.error("Weaviate upload failed: %s", e)
+            for idx, err in enumerate(e.errors):
+                logger.error("Error %d:\n%s", idx, json.dumps(err, indent=2))
     else:
         raise Exception("No valid documents to upload.")
          
