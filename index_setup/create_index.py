@@ -9,13 +9,13 @@ from weaviate.classes.config import Property, DataType, Configure
  
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
- 
+
  
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Create or update a Weaviate collection")
     parser.add_argument(
         "--collection-name",
-        default=os.environ.get("WEAVIATE_COLLECTION", "companies"),
+        default=os.environ.get("WEAVIATE_COLLECTION"),
         help="Name of the Weaviate collection to create",
     )
     return parser.parse_args()
