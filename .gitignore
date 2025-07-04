@@ -45,6 +45,7 @@ dist/
 # Local data and volumes
 .volumes/
 data/
+my_docs.json
 
 # Miscellaneous
 Docker-commands.txt

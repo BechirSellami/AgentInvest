@@ -3,7 +3,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from agent_service.graph.state import InvestorState
-from agent_service.graph.build_partial_graph import build_engine
+from agent_service.graph.build_graph import build_engine
 
 app = FastAPI(title="Agent Service")
 engine = build_engine()

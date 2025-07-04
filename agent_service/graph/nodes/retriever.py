@@ -15,20 +15,24 @@ from ..state import InvestorState
 import logging
 logger = logging.getLogger(__name__)
 
-# @lru_cache(maxsize=1)
-# def _get_client() -> weaviate.WeaviateClient:
-#     """Return a cached Weaviate client"""
-#     try:
-#         return weaviate.connect_to_local()
-#     except Exception as e:
-#         raise RuntimeError(
-#             f"Failed to connect to Weaviate. Ensure the Weaviate server is running and accessible.\n{e}"
-#         )
+load_dotenv()
+WEAVIATE_URL = os.getenv("WEAVIATE_URL", "http://localhost:8080")
+
+
+@lru_cache(maxsize=1)
+def _get_client() -> weaviate.WeaviateClient:
+    """Return a cached Weaviate client"""
+    try:
+        return weaviate.connect_to_local(WEAVIATE_URL)
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to connect to Weaviate. Ensure the Weaviate server is running and accessible.\n{e}"
+        )
 
 
 def retriever(state: InvestorState) -> InvestorState:
     """Populate ``state`` with documents retrieved from Weaviate."""
-    client = weaviate.connect_to_local()
+    client = _get_client()
     collection_name = os.getenv("WEAVIATE_COLLECTION")
     limit = int(os.getenv("RETRIEVAL_LIMIT", "10"))
     

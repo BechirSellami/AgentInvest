@@ -44,42 +44,6 @@ def _infer_sector_from_keywords(keywords: Optional[List[str]]) -> Optional[str]:
     return None
 
 
-def _build_where_old(q: dict) -> Optional[dict]:
-    """Convert the structured query into a Weaviate ``where`` filter."""
-    clauses = []
-
-    if q["sector"]:
-        clauses.append({"path": ["sector"], "operator": "Equal", "valueText": q["sector"]})
-
-    if q["ebitda_min"] > 0:
-        clauses.append({
-            "path": ["ebitda_musd"], 
-            "operator": "GreaterThan",
-            "valueNumber": q["ebitda_min"],
-        })
-
-    if q["rev_growth_min"] > 0:
-        clauses.append({
-            "path": ["rev_growth_pct"],
-            "operator": "GreaterThan",
-            "valueNumber": q["rev_growth_min"],
-        })
-    
-    if q["market_cap_min"] > 0:
-        clauses.append({
-            "path": ["market_cap_musd"],
-            "operator": "GreaterThan",
-            "valueNumber": q["market_cap_min"],
-        })
-
-    if not clauses:
-        return None
-    if len(clauses) == 1:
-        return clauses[0]
-
-    return {"operator": "And", "operands": clauses}
-
-
 def _build_where(q: dict) -> Optional[Filter]:
     """Convert structured query into a Weaviate `_Filters` object."""
     filters = []
@@ -87,6 +51,9 @@ def _build_where(q: dict) -> Optional[Filter]:
     if q["sector"]:
         filters.append(Filter.by_property("sector").equal(q["sector"]))
 
+    if q["country"]:
+        filters.append(Filter.by_property("country").equal(q["country"]))
+    
     if q["ebitda_min"] > 0:
         filters.append(Filter.by_property("ebitda_musd").greater_than(q["ebitda_min"]))
 
@@ -127,6 +94,8 @@ def query_fix(state: InvestorState) -> InvestorState:
         concepts.append(q["theme"])
     if q["sector"]:
         concepts.append(q["sector"])
+    if q["country"]:
+        concepts.append(q["country"])    
     
     if not concepts:
         raise ValueError("No keywords or sector provided for query.")
@@ -135,12 +104,6 @@ def query_fix(state: InvestorState) -> InvestorState:
     # Generate near_text embedding from keywords and sector
     embedding = embed(" ".join(concepts)) if concepts else None
     state.near_vector = embedding
-
-    # if embedding:
-        # state.near_vector["certainty"] = 0.7  # Set a default certainty threshold
-    # if not state.near_text:
-    #     logger.warning("No near_text vector generated from keywords or sector.")
-    #     state.error = "No keywords or sector provided for query."
         
     state.structured_query = q
 
