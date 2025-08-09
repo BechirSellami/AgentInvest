@@ -33,23 +33,29 @@ INFER_SECTOR_KEYWORDS = {
 # ---------------------------------------------------------------------------
 
 
-def _infer_sector_from_keywords(keywords: Optional[List[str]]) -> Optional[str]:
-    """Return a sector guess based on common keywords."""
-    if not keywords:
-        return None
-    blob = " ".join(keywords).lower()
-    for kw, sector in INFER_SECTOR_KEYWORDS.items():
-        if kw in blob:
-            return sector
-    return None
+# def _infer_sector_from_keywords(keywords: Optional[List[str]]) -> Optional[str]:
+#     """Return a sector guess based on common keywords."""
+#     if not keywords:
+#         return None
+#     blob = " ".join(keywords).lower()
+#     for kw, sector in INFER_SECTOR_KEYWORDS.items():
+#         if kw in blob:
+#             return sector
+#     return None
 
 
 def _build_where(q: dict) -> Optional[Filter]:
     """Convert structured query into a Weaviate `_Filters` object."""
-    filters = []
+    filters: list[Filter] = []
 
-    if q["sector"]:
-        filters.append(Filter.by_property("sector").equal(q["sector"]))
+    theme = q.get("theme")
+    if theme:
+        filters.append(
+            Filter.by_property("themes").contains_any([theme])
+        )
+    
+    # if q["sector"]:
+    #     filters.append(Filter.by_property("sector").equal(q["sector"]))
 
     if q["country"]:
         filters.append(Filter.by_property("country").equal(q["country"]))
@@ -61,7 +67,7 @@ def _build_where(q: dict) -> Optional[Filter]:
         filters.append(Filter.by_property("rev_growth_pct").greater_than(q["rev_growth_min"]))
 
     if q["market_cap_min"] > 0:
-        filters.append(Filter.by_property("market_cap_musd").greater_than(q["market_cap_min"]))
+        filters.append(Filter.by_property("market_cap_musd").greater_than(q["market_cap_min"]))    
 
     if not filters:
         return None
@@ -77,12 +83,9 @@ def query_fix(state: InvestorState) -> InvestorState:
     
     q = state.structured_query.copy()
 
-    if q["sector"] is None:
-        q["sector"] = _infer_sector_from_keywords(q.get("keywords"))
-
     for fld, default in DEFAULTS.items():
         if q.get(fld) is None:
-            print(f"Replacing {fld} by default {default}")
+            # Replace field by default
             q[fld] = default
 
     state.where_filter = _build_where(q)
@@ -98,13 +101,22 @@ def query_fix(state: InvestorState) -> InvestorState:
         concepts.append(q["country"])    
     
     if not concepts:
-        raise ValueError("No keywords or sector provided for query.")
+        raise ValueError("Unable to extract theme from query.")
     logger.info("Generated concepts for embedding: %s", concepts)
 
-    # Generate near_text embedding from keywords and sector
-    embedding = embed(" ".join(concepts)) if concepts else None
-    state.near_vector = embedding
+    # Safe helpers
+    keywords = q.get("keywords") or []        # becomes [] if None/empty
+    if isinstance(keywords, str):             # convert a single string to list
+        keywords = [keywords]
         
+    theme = q.get("theme") or ""
+    parts = [q["keyword_query"], theme or ""]
+    
+    logger.info("Text to embed: %s", parts)   
+    text_to_embed = " | ".join(p for p in parts if p)   # drop falsy parts
+    embedding = embed(text_to_embed) if text_to_embed else None
+    state.near_vector = embedding 
+    
     state.structured_query = q
 
     return state
