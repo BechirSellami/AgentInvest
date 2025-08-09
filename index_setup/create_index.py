@@ -5,7 +5,7 @@ import os
 import logging
 
 import weaviate
-from weaviate.classes.config import Property, DataType, Configure
+from weaviate.classes.config import Property, DataType, Configure, Tokenization
  
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -42,6 +42,10 @@ def main() -> None:
             Property(name="rev_growth_pct", data_type=DataType.NUMBER),
             Property(name="market_cap_musd", data_type=DataType.NUMBER),
             Property(name="description", data_type=DataType.TEXT),
+            # enrichment fields
+            Property(name="summary", data_type=DataType.TEXT, tokenization=Tokenization.WHITESPACE),
+            Property(name="keywords", data_type=DataType.TEXT_ARRAY),
+            Property(name="themes", data_type=DataType.TEXT_ARRAY)
          ],
         vectorizer_config=Configure.Vectorizer.none(),
         vector_index_config=Configure.VectorIndex.hnsw()
